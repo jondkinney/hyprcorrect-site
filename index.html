@@ -378,28 +378,33 @@
       user-select: none;
       margin-right: 8px;
     }
-    .demo-line .caret {
-      display: inline-block;
-      width: 9px;
-      height: 1.1em;
-      vertical-align: -3px;
+    /* Terminal-style block cursor: it inverts the character cell it occupies
+       (or an empty cell at end of line), so it never adds width to mid-line
+       text. The same block is used at rest and while moving into a word.
+       The blink toggles the highlight (not opacity) so the character under
+       the cursor stays visible; because every keystroke repaints a fresh
+       element the animation restarts, keeping the block solid while it moves
+       and only blinking once it comes to rest. */
+    .demo-line .caret-block {
       background: var(--accent);
-      margin-left: 2px;
-      animation: blink 1.1s steps(2, end) infinite;
+      color: var(--bg-card);
+      border-radius: 2px;
+      animation: caret-blink 1.06s linear infinite;
     }
-    @keyframes blink { 50% { opacity: 0; } }
+    @keyframes caret-blink {
+      0%, 49%   { background: var(--accent); color: var(--bg-card); }
+      50%, 100% { background: transparent;   color: inherit; }
+    }
 
-    /* The animated typo: "recieve" gets squiggle-underlined,
-       then the chord chip appears, then the word swaps to "receive". */
-    .typo {
-      position: relative;
-      display: inline-block;
-    }
-    .typo.before .word-bad,
-    .typo.before .word-good { display: inline-block; }
-    .typo .word-good { color: var(--good); display: none; }
-    .typo .word-bad { color: var(--text); position: relative; }
-    .typo .word-bad::after {
+    /* The demo is driven by JS (see #demoBuf engine at the bottom of the
+       file). The buffer line types/backspaces text character by character;
+       these classes are toggled on the rendered slices. */
+    .demo-buffer { min-height: 60px; }
+    .buf { white-space: pre-wrap; word-break: break-word; }
+
+    /* squiggle under a word the daemon has flagged */
+    .sq { position: relative; }
+    .sq::after {
       content: "";
       position: absolute;
       left: 0; right: 0; bottom: -3px;
@@ -407,41 +412,16 @@
       background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 6' preserveAspectRatio='none'><path d='M 0 3 q 1.5 -3 3 0 t 3 0 t 3 0 t 3 0' fill='none' stroke='%23f38ba8' stroke-width='1.2' stroke-linecap='round'/></svg>");
       background-repeat: repeat-x;
       background-size: 8px 6px;
-      opacity: 0;
-      animation: squiggle-in 6s ease-in-out infinite;
     }
-    @keyframes squiggle-in {
-      0%, 18%   { opacity: 0; }
-      22%, 60%  { opacity: 1; }
-      62%, 100% { opacity: 0; }
-    }
-    /* the bad word fades out, the good word fades in */
-    .typo .word-bad { animation: word-bad 6s ease-in-out infinite; }
-    .typo .word-good {
-      display: inline-block;
-      position: absolute;
-      left: 0; top: 0;
-      opacity: 0;
-      animation: word-good 6s ease-in-out infinite;
-    }
-    @keyframes word-bad {
-      0%, 60%   { opacity: 1; }
-      65%, 100% { opacity: 0; }
-    }
-    @keyframes word-good {
-      0%, 60%   { opacity: 0; }
-      66%, 100% { opacity: 1; }
-    }
+    /* freshly corrected text, flashed green */
+    .good { color: var(--good); transition: color .3s ease; }
 
-    /* the chord chip appears when the chord fires — positioned
-       BELOW the "> I recieve …" line so the line stays fully
-       legible while the chip pops in (typing line is around y=86
-       in the canvas; place the chip safely under that). */
+    /* the chord chip pops in when a chord fires (toggled by JS) */
     .chord-chip {
       position: absolute;
-      top: 158px;
       left: 50%;
-      transform: translateX(-50%) translateY(-6px);
+      bottom: 22px;
+      transform: translateX(-50%) translateY(8px);
       display: inline-flex;
       gap: 6px;
       align-items: center;
@@ -451,13 +431,15 @@
       border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--border));
       box-shadow: var(--shadow-pop);
       opacity: 0;
-      animation: chord-pop 6s ease-in-out infinite;
+      visibility: hidden;
+      transition: opacity .2s ease, transform .2s ease;
       z-index: 2;
+      white-space: nowrap;
     }
-    @keyframes chord-pop {
-      0%, 50%   { opacity: 0; transform: translateX(-50%) translateY(0px) scale(.96); }
-      55%, 64%  { opacity: 1; transform: translateX(-50%) translateY(-6px) scale(1); }
-      70%, 100% { opacity: 0; transform: translateX(-50%) translateY(-12px) scale(.98); }
+    .chord-chip.show {
+      opacity: 1;
+      visibility: visible;
+      transform: translateX(-50%) translateY(0);
     }
     .chord-chip .key {
       font-family: var(--font-mono);
@@ -471,6 +453,106 @@
       font-weight: 600;
     }
     .chord-chip .sep { color: var(--text-subtle); font-size: 12px; }
+
+    /* review-correction popup (segment 3) */
+    .review-pop {
+      position: absolute;
+      left: 50%; top: 54%;
+      transform: translate(-50%, -44%) scale(.96);
+      width: min(86%, 360px);
+      background: var(--bg-card-2);
+      border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--border));
+      border-radius: 12px;
+      box-shadow: var(--shadow-pop);
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity .2s ease, transform .2s ease;
+      z-index: 3;
+      overflow: hidden;
+    }
+    .review-pop.show {
+      opacity: 1;
+      visibility: visible;
+      transform: translate(-50%, -50%) scale(1);
+    }
+    .review-head {
+      font-family: var(--font-sans);
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-muted);
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg-elev);
+    }
+    .review-body {
+      font-family: var(--font-mono);
+      font-size: 14px;
+      color: var(--text);
+      padding: 14px;
+      line-height: 1.6;
+    }
+    .review-foot {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      padding: 10px 14px;
+      border-top: 1px solid var(--border);
+      font-size: 12px;
+      color: var(--text-subtle);
+    }
+    .review-foot .rk {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text);
+      padding: 2px 7px;
+      border-radius: 5px;
+      background: var(--bg-elev);
+      border: 1px solid var(--border);
+      transition: all .15s ease;
+    }
+    .review-foot .rk.press {
+      background: var(--accent);
+      color: #fff;
+      border-color: var(--accent);
+    }
+    .review-foot .dotsep { opacity: .5; }
+
+    /* carousel navigation */
+    .demo-nav {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      margin-top: 18px;
+    }
+    .demo-caption {
+      font-size: 12px;
+      color: var(--text-subtle);
+      letter-spacing: .01em;
+    }
+    .demo-caption b {
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+      font-weight: 600;
+      margin-left: 6px;
+      letter-spacing: 5px;
+    }
+    .demo-dots { display: flex; gap: 8px; }
+    .demo-dots button {
+      width: 8px; height: 8px;
+      padding: 0;
+      border: none;
+      border-radius: 50%;
+      background: var(--border-strong);
+      cursor: pointer;
+      transition: all var(--transition);
+    }
+    .demo-dots button:hover { background: var(--text-subtle); }
+    .demo-dots button.active {
+      background: var(--accent);
+      width: 22px;
+      border-radius: 5px;
+    }
 
     /* Inline chord chip — one pill containing every modifier +
        the key, spaced apart. Matches how the prefs window renders
@@ -979,35 +1061,38 @@
         </div>
       </div>
 
-      <!-- Animated terminal demo: "I recieve a lot of email" → chord chip
-           appears → the word swaps to "receive". Loops every ~6s. -->
-      <div class="demo-frame" aria-hidden="true">
-        <div class="demo-titlebar">
-          <span class="dot-r"></span><span class="dot-y"></span><span class="dot-g"></span>
-          <span class="title">~/notes — terminal · hyprcorrect active</span>
-        </div>
-        <div class="demo-canvas">
-          <div class="demo-line"><span class="prompt">$</span>echo "drafting a note"</div>
-          <div class="demo-line" style="color: var(--text-subtle); margin-bottom: 14px;">drafting a note</div>
-          <div class="demo-line">
-            <span class="prompt">&gt;</span>I
-            <span class="typo">
-              <span class="word-bad">recieve</span>
-              <span class="word-good">receive</span>
-            </span>
-            a lot of email about<span class="caret"></span>
+      <!-- Hero demo carousel: three terminal segments (fix word, fix
+           sentence, review) play in sequence and can be replayed via the
+           dots. Driven entirely by the JS engine at the bottom of the file
+           (search "demo carousel"); nothing animates without it, so keep
+           the element IDs below in sync with that code. -->
+      <div class="demo-wrap">
+        <div class="demo-frame" aria-hidden="true">
+          <div class="demo-titlebar">
+            <span class="dot-r"></span><span class="dot-y"></span><span class="dot-g"></span>
+            <span class="title">~/notes — terminal · hyprcorrect active</span>
           </div>
+          <div class="demo-canvas">
+            <div class="demo-line"><span class="prompt">$</span>echo "drafting a note"</div>
+            <div class="demo-line" style="color: var(--text-subtle); margin-bottom: 14px;">drafting a note</div>
+            <div class="demo-line demo-buffer"><span class="prompt">&gt;</span><span class="buf" id="demoBuf"></span></div>
 
-          <div class="chord-chip" aria-hidden="true">
-            <span class="key">⇧</span>
-            <span class="sep">+</span>
-            <span class="key">⌃</span>
-            <span class="sep">+</span>
-            <span class="key">⌥</span>
-            <span class="sep">+</span>
-            <span class="key">⌘</span>
-            <span class="sep">+</span>
-            <span class="key">F</span>
+            <div class="chord-chip" id="demoChip"></div>
+
+            <div class="review-pop" id="demoReview">
+              <div class="review-head">Review correction</div>
+              <div class="review-body" id="demoReviewBody"></div>
+              <div class="review-foot"><span class="rk">Enter</span> apply <span class="dotsep">·</span> <span class="rk">Esc</span> cancel</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="demo-nav">
+          <span class="demo-caption" id="demoCaption"></span>
+          <div class="demo-dots" aria-label="Demo segments">
+            <button type="button" class="active" data-seg="0" aria-label="Watch the fix-word demo"></button>
+            <button type="button" data-seg="1" aria-label="Watch the fix-sentence demo"></button>
+            <button type="button" data-seg="2" aria-label="Watch the review-correction demo"></button>
           </div>
         </div>
       </div>
@@ -1359,6 +1444,221 @@
           setTimeout(() => { btn.innerHTML = orig; }, 1400);
         } catch (e) {}
       });
+    })();
+
+    // -------- demo carousel --------
+    // Three terminal segments that type/backspace text character by
+    // character, advancing automatically and replayable via the dots.
+    (function () {
+      const buf        = document.getElementById('demoBuf');
+      const chip       = document.getElementById('demoChip');
+      const review     = document.getElementById('demoReview');
+      const reviewBody = document.getElementById('demoReviewBody');
+      const caption    = document.getElementById('demoCaption');
+      if (!buf) return;
+      const dots = Array.from(document.querySelectorAll('.demo-dots button'));
+      const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      const MODS = ['⇧', '⌃', '⌥', '⌘'];
+
+      const CAPTIONS = [
+        'Fix word <b>⇧⌃⌥⌘F</b>',
+        'Fix sentence <b>⇧⌃⌥⌘S</b>',
+        'Review correction <b>⇧⌃⌥⌘R</b>',
+      ];
+
+      let gen = 0;                        // bumped on every (re)play to cancel the prior run
+      const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+      const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+      // ---- line model: text + caret index + optional marked ranges ----
+      const L = { text: '', caret: 0, marks: [], caretStyle: 'bar' };
+
+      // Block cursor that never adds mid-line width: while moving into a word
+      // ('block') it sits on the character left of the caret; at rest it sits
+      // on the cell at the caret — an empty block at end of line.
+      function paint() {
+        const text = L.text, caret = L.caret, n = text.length;
+        const cls = new Array(n).fill(null);
+        L.marks.forEach((m) => { for (let i = m.start; i < m.end; i++) cls[i] = m.cls; });
+        const onLeft = L.caretStyle === 'block';
+        const caretChar = onLeft ? (caret > 0 ? caret - 1 : -1) : (caret < n ? caret : -1);
+        const emptyEnd = !onLeft && caret >= n;
+        let out = '';
+        let i = 0;
+        while (i < n) {
+          if (i === caretChar) {
+            out += '<span class="caret-block' + (cls[i] ? ' ' + cls[i] : '') + '">' + esc(text[i]) + '</span>';
+            i++;
+          } else {
+            let j = i;
+            while (j < n && cls[j] === cls[i] && j !== caretChar) j++;
+            const seg = esc(text.slice(i, j));
+            out += cls[i] ? '<span class="' + cls[i] + '">' + seg + '</span>' : seg;
+            i = j;
+          }
+        }
+        if (emptyEnd) out += '<span class="caret-block"> </span>';
+        buf.innerHTML = out;
+      }
+
+      function setLine(text, caret, marks) {
+        L.text = text;
+        L.caret = caret == null ? text.length : caret;
+        L.marks = marks || [];
+        L.caretStyle = 'rest';
+        paint();
+      }
+      const setMarks = (marks) => { L.marks = marks || []; paint(); };
+      const mark = (text, word, cls) => { const i = text.indexOf(word); return { start: i, end: i + word.length, cls }; };
+
+      async function moveCaret(to, alive, step) {
+        step = step || 30;
+        while (L.caret !== to) {
+          if (!alive()) return;
+          L.caret += to > L.caret ? 1 : -1;
+          paint();
+          await sleep(step);
+        }
+      }
+      async function type(str, alive, per) {
+        per = per || 40;
+        for (const ch of str) {
+          if (!alive()) return;
+          L.text = L.text.slice(0, L.caret) + ch + L.text.slice(L.caret);
+          L.caret++;
+          paint();
+          await sleep(per + Math.random() * 30);
+        }
+      }
+      async function backspace(n, alive, per) {
+        per = per || 20;
+        for (let i = 0; i < n && L.caret > 0; i++) {
+          if (!alive()) return;
+          L.text = L.text.slice(0, L.caret - 1) + L.text.slice(L.caret);
+          L.caret--;
+          paint();
+          await sleep(per);
+        }
+      }
+
+      function showChip(last) {
+        chip.innerHTML = [...MODS, last]
+          .map((k) => '<span class="key">' + k + '</span>')
+          .join('<span class="sep">+</span>');
+        chip.classList.add('show');
+      }
+      const hideChip = () => chip.classList.remove('show');
+
+      // ---- segments ----
+      async function segWord(alive) {
+        const t = 'I recieve a lot of email about';
+        const bad = mark(t, 'recieve', 'sq');
+        setLine(t, t.length, [bad]);            // block resting after the last word
+        await sleep(800); if (!alive()) return;
+        L.caretStyle = 'block'; paint();        // block cursor for the move into the word
+        await moveCaret(bad.end, alive, 26);    // lands ON the last letter of "recieve"
+        await sleep(360); if (!alive()) return;
+        showChip('F');
+        await sleep(520); if (!alive()) return;
+        setMarks([]);                           // squiggle clears as the fix runs
+        await backspace(7, alive, 26);          // delete "recieve"
+        await sleep(110); if (!alive()) return;
+        await type('receive', alive, 48);       // type the correction in place
+        L.caretStyle = 'rest';                  // rest as a block just after the fix
+        setMarks([{ start: bad.start, end: bad.start + 7, cls: 'good' }]);
+        hideChip();
+        await sleep(950); if (!alive()) return;
+        setMarks([]);
+        await sleep(450);
+      }
+
+      async function segSentence(alive) {
+        const t = 'Their going to the meeteng tommorow';
+        const fixed = "They're going to the meeting tomorrow";
+        setLine(t, t.length, [mark(t, 'Their', 'sq'), mark(t, 'meeteng', 'sq'), mark(t, 'tommorow', 'sq')]);
+        await sleep(950); if (!alive()) return;
+        showChip('S');
+        await sleep(520); if (!alive()) return;
+        setMarks([]);
+        await backspace(t.length, alive, 16);   // wipe the whole line
+        await sleep(140); if (!alive()) return;
+        await type(fixed, alive, 32);           // retype it, errors fixed
+        setMarks([mark(fixed, "They're", 'good'), mark(fixed, 'meeting', 'good'), mark(fixed, 'tomorrow', 'good')]);
+        hideChip();
+        await sleep(1050); if (!alive()) return;
+        setMarks([]);
+        await sleep(450);
+      }
+
+      async function segReview(alive) {
+        const t = 'Lets meet on tuesday';
+        const fixed = "Let's meet on Tuesday";
+        setLine(t, t.length, [mark(t, 'Lets', 'sq'), mark(t, 'tuesday', 'sq')]);
+        await sleep(800); if (!alive()) return;
+        showChip('R');
+        await sleep(560); if (!alive()) return;
+        hideChip();
+        reviewBody.textContent = fixed;         // proposed text shown for approval
+        review.classList.add('show');
+        await sleep(1500); if (!alive()) return;
+        const enter = review.querySelector('.rk');
+        if (enter) { enter.classList.add('press'); setTimeout(() => enter.classList.remove('press'), 240); }
+        await sleep(300); if (!alive()) return;
+        review.classList.remove('show');
+        await sleep(280); if (!alive()) return;
+        setMarks([]);                           // Enter applies it: retype into the buffer
+        await backspace(t.length, alive, 16);
+        await sleep(120); if (!alive()) return;
+        await type(fixed, alive, 32);
+        setMarks([mark(fixed, "Let's", 'good'), mark(fixed, 'Tuesday', 'good')]);
+        await sleep(1050); if (!alive()) return;
+        setMarks([]);
+        await sleep(450);
+      }
+
+      const segments = [segWord, segSentence, segReview];
+
+      function setActive(idx) {
+        dots.forEach((d, i) => d.classList.toggle('active', i === idx));
+        caption.innerHTML = CAPTIONS[idx];
+      }
+      function resetCanvas() {
+        hideChip();
+        review.classList.remove('show');
+        setMarks([]);
+      }
+
+      async function playFrom(idx) {
+        const my = ++gen;
+        const alive = () => my === gen;
+        setActive(idx);
+        resetCanvas();
+        await segments[idx](alive);
+        if (my !== gen) return;             // superseded by a click or the next tick
+        await sleep(1200);
+        if (my !== gen) return;
+        playFrom((idx + 1) % segments.length);
+      }
+
+      // Reduced motion: skip the typing, just show each corrected result.
+      if (reduce) {
+        const finals = ['I receive a lot of email about', "They're going to the meeting tomorrow", "Let's meet on Tuesday"];
+        const showStatic = (idx) => { gen++; setActive(idx); resetCanvas(); setLine(finals[idx]); };
+        dots.forEach((d, i) => d.addEventListener('click', () => showStatic(i)));
+        showStatic(0);
+        return;
+      }
+
+      dots.forEach((d, i) => d.addEventListener('click', () => playFrom(i)));
+
+      // Start once the demo scrolls into view so it doesn't race past offscreen.
+      let started = false;
+      const io = new IntersectionObserver((entries) => {
+        entries.forEach((e) => {
+          if (e.isIntersecting && !started) { started = true; playFrom(0); io.disconnect(); }
+        });
+      }, { threshold: 0.35 });
+      io.observe(buf);
     })();
   </script>
 </body>
