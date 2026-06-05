@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>HyprCorrect — Keyboard-driven spelling correction for the whole desktop</title>
-  <meta name="description" content="HyprCorrect fixes the word or sentence you just typed in any focused app, including terminals. One hotkey. Hyprland-first, Wayland-native, written in Rust. Free and open source." />
+  <meta name="description" content="HyprCorrect fixes the word or sentence you just typed in any focused app, including terminals. One hotkey. Linux (Hyprland / Wayland) and macOS, written in Rust. Free and open source." />
 
   <meta property="og:title" content="HyprCorrect — Keyboard-driven spelling correction" />
   <meta property="og:description" content="Press a hotkey. The word or sentence you just typed gets fixed in place, in any focused app — terminals included." />
@@ -1056,7 +1056,7 @@
         <div class="hero-meta">
           <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Works in terminals</span>
           <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Offline by default</span>
-          <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Wayland-native</span>
+          <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Linux &amp; macOS</span>
           <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Written in Rust</span>
         </div>
       </div>
@@ -1146,7 +1146,7 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
           </div>
           <h3>Privacy blocklist</h3>
-          <p>Pick apps from a dropdown — populated from running window classes — whose keys should never be buffered. Password managers and sensitive consoles stay invisible to HyprCorrect.</p>
+          <p>Pick apps from a dropdown — populated from your running apps — whose keys should never be buffered. Password managers and sensitive consoles stay invisible to HyprCorrect.</p>
         </div>
 
         <div class="feature-card">
@@ -1154,7 +1154,7 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg>
           </div>
           <h3>Per-window buffers</h3>
-          <p>Hyprland focus events partition the buffer per window. Switching apps doesn't poison another's history; returning restores the buffer you left behind.</p>
+          <p>Focus events partition the buffer per window on Linux, per app on macOS. Switching apps doesn't poison another's history; returning restores the buffer you left behind.</p>
         </div>
       </div>
     </div>
@@ -1246,7 +1246,7 @@
           </li>
           <li>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-            <span><strong>Behavior tuning.</strong> A slider for <code>inter_key_delay_ms</code> handles apps that drop characters under <code>wtype</code>'s default speed.</span>
+            <span><strong>Behavior tuning.</strong> Per-backspace and per-character pause sliders handle apps that drop characters at full typing speed.</span>
           </li>
         </ul>
       </div>
@@ -1267,8 +1267,10 @@
             HyprCorrect is a single Rust daemon plus an egui preferences window.
             On Linux it's Wayland-native: <code>evdev</code> capture,
             <code>xkbcommon</code> translation, <code>wtype</code> emit, and a
-            Hyprland-installed keybind. macOS support is a planned milestone
-            sharing the same core.
+            Hyprland-installed keybind. On macOS the same core runs against the
+            system frameworks: a <code>CGEventTap</code> for capture,
+            <code>CGEvent</code> synthetic input, a Carbon global hotkey, and an
+            <code>NSStatusItem</code> menu-bar item.
           </p>
 
           <ul class="tech-bullets">
@@ -1305,7 +1307,7 @@
               </span>
               <div>
                 <strong>Secrets in the keychain</strong>
-                <span>LLM API keys are stored via <code>libsecret</code>, never in plain-text config files.</span>
+                <span>LLM API keys live in the OS keychain — <code>libsecret</code> on Linux, the macOS Keychain — never in plain-text config files.</span>
               </div>
             </li>
             <li>
@@ -1348,6 +1350,14 @@
 <span class="prompt">$ </span><span class="cmd">cd</span> hyprcorrect
 <span class="prompt">$ </span><span class="cmd">cargo install</span> --path crates/hyprcorrect</div>
           </div>
+
+          <div class="code-block" style="margin-top: 16px;">
+            <div class="code-head"><span class="dot"></span>terminal · macOS</div>
+            <div class="code-body"><span class="comment"># Same build — runs as a menu-bar item, not a Dock app</span>
+<span class="prompt">$ </span><span class="cmd">cargo install</span> --path crates/hyprcorrect
+<span class="comment"># Then grant Input Monitoring + Accessibility under</span>
+<span class="comment"># System Settings → Privacy &amp; Security, and restart it</span></div>
+          </div>
         </div>
       </div>
     </div>
@@ -1358,7 +1368,7 @@
     <div class="container cta-strip">
       <div class="cta-card">
         <h2>Stop retyping the same typos.</h2>
-        <p>Free, open source, Hyprland-first. The chord is yours. The dictionary is yours. The API key never leaves your machine.</p>
+        <p>Free, open source, on Linux and macOS. The chord is yours. The dictionary is yours. The API key never leaves your machine.</p>
         <div class="hero-cta">
           <a class="btn btn-primary btn-lg" href="https://github.com/jondkinney/hyprcorrect/releases/latest" target="_blank" rel="noopener">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
